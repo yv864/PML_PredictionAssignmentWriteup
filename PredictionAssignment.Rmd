@@ -1,0 +1,90 @@
+---
+title: "Prediction Assignment"
+author: "Andrey Kotov"
+date: "27 January 2016"
+output: html_document
+---
+
+This is Prediction Assignment Writeup for Practical Machine Leaning Course taught by Johns Hopkins University on Coursera.
+
+#Question
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har 
+
+#Loading and cleaning data
+```{r}
+require(caret)
+
+#pmlTraining  <- read.csv(text = getURL("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"))
+#pmlTesting <- read.csv(text = getURL("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"))
+
+pmlTraining <- read.csv("pml-training.csv")
+pmlTesting <- read.csv("pml-testing.csv")
+```
+
+Dataframe has 160 columns, and 19622 training observations.
+Our task is to predict 20 results in pmlTesting data set.
+
+Some of features contain NA values. We are removing all of these invalid columns to reduce analysis time.
+Also, we don't need any timestamp columns: "raw_timestamp_part_1", "raw_timestamp_part_2", "cvtd_timestamp" and some factor variables.
+
+```{r}
+columns <- names(pmlTraining[colSums(is.na(pmlTraining)) == 0 & colSums(is.na(pmlTesting)) == 0])
+columns <- columns[!columns %in% c("X","raw_timestamp_part_1", "raw_timestamp_part_2", "cvtd_timestamp", "new_window", "num_window")]
+```
+
+Let's split pmlTraining to training and validation sets:
+
+```{r}
+partioning <- createDataPartition(pmlTraining$classe, p = 0.75)[[1]]
+training <- pmlTraining[partioning, columns]
+validation <- pmlTraining[-partioning, columns]
+testing <- pmlTesting[, columns[1:53]]
+```
+
+#Building model
+
+We would use "random forest" in building our model. This method often gives good results, so let's try it in our research.
+We need to set random seed for reproducibility.
+
+```{r}
+require(randomForest)
+set.seed(2701)
+model <- randomForest(classe ~ ., data = training, ntree = 64)
+```
+
+As we can see from confusion matrix, our model has low prediction (classification) error:
+
+```{r}
+model$confusion
+```
+
+Variable importance plot shows top 10 predictor variables:
+
+```{r}
+varImpPlot(model, n.var = 10)
+```
+
+
+#Cross validation
+
+Let's count prediction error in validation set.
+
+```{r}
+predValidation <- predict(model, validation)
+
+validationError <- 1 - sum(predValidation == validation$classe) / nrow(validation)
+
+validationError
+```
+
+This means, that in 4883 of 4904 cases classe was predicted correctly.
+
+#Final prediction.
+Our prediction for testing set is:
+```{r}
+prediction <- predict(model, testing)
+prediction
+```
+
+
+
